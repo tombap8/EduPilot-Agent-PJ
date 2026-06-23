@@ -59,9 +59,30 @@ def init_db(force_reset=False):
     CREATE TABLE IF NOT EXISTS courses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
-        description TEXT
+        description TEXT,
+        total_hours INTEGER,
+        start_date TEXT,
+        end_date TEXT,
+        course_type TEXT,
+        daily_hours INTEGER,
+        holiday_dates TEXT
     )
     """)
+
+    # 기존 DB 테이블 컬럼 마이그레이션 (컬럼 존재하지 않을 시 ALTER TABLE)
+    cursor.execute("PRAGMA table_info(courses)")
+    cols = [col[1] for col in cursor.fetchall()]
+    new_cols = {
+        "total_hours": "INTEGER",
+        "start_date": "TEXT",
+        "end_date": "TEXT",
+        "course_type": "TEXT",
+        "daily_hours": "INTEGER",
+        "holiday_dates": "TEXT"
+    }
+    for col_name, col_type in new_cols.items():
+        if col_name not in cols:
+            cursor.execute(f"ALTER TABLE courses ADD COLUMN {col_name} {col_type}")
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS curriculums (
@@ -311,10 +332,20 @@ def get_all_students():
 def get_all_courses():
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM courses")
+    cursor.execute("SELECT id, name, description, total_hours, start_date, end_date, course_type, daily_hours, holiday_dates FROM courses")
     rows = cursor.fetchall()
     conn.close()
-    return [{"id": r[0], "name": r[1], "description": r[2]} for r in rows]
+    return [{
+        "id": r[0],
+        "name": r[1],
+        "description": r[2],
+        "total_hours": r[3],
+        "start_date": r[4],
+        "end_date": r[5],
+        "course_type": r[6],
+        "daily_hours": r[7],
+        "holiday_dates": r[8]
+    } for r in rows]
 
 def get_course_curriculum(course_id):
     conn = get_connection()
@@ -404,10 +435,13 @@ def insert_announcement(title, content):
     conn.commit()
     conn.close()
 
-def insert_course(name, description):
+def insert_course(name, description, total_hours=None, start_date=None, end_date=None, course_type=None, daily_hours=None, holiday_dates=None):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO courses (name, description) VALUES (?, ?)", (name, description))
+    cursor.execute("""
+        INSERT INTO courses (name, description, total_hours, start_date, end_date, course_type, daily_hours, holiday_dates) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (name, description, total_hours, start_date, end_date, course_type, daily_hours, holiday_dates))
     conn.commit()
     inserted_id = cursor.lastrowid
     conn.close()

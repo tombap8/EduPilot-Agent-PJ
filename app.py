@@ -21,6 +21,234 @@ load_dotenv()
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
+import datetime
+
+def calculate_end_date(start_date, total_hours, daily_hours, course_type, holiday_dates=None):
+    """
+    시작일, 전체 수업 시간, 하루 수업 시간, 과정 구분(평일/주말), 제외일(공휴일/공강일)을
+    고려하여 실제 과정이 완료되는 날짜(종료일)를 계산합니다.
+    """
+    if not total_hours or not daily_hours or total_hours <= 0 or daily_hours <= 0:
+        return start_date, 0
+    
+    # 제외일 세트 구성
+    excluded = set()
+    if holiday_dates:
+        for d in holiday_dates:
+            if isinstance(d, dict):
+                # date 또는 제외 날짜 속성 추출
+                d_val = d.get("date") or d.get("제외 날짜")
+                if not d_val:
+                    continue
+                d = d_val
+                
+            if isinstance(d, (datetime.date, datetime.datetime)):
+                excluded.add(d)
+            elif isinstance(d, str) and d.strip():
+                try:
+                    excluded.add(datetime.datetime.strptime(d.strip(), "%Y-%m-%d").date())
+                except ValueError:
+                    pass
+
+    days_needed = (total_hours + daily_hours - 1) // daily_hours
+    current_date = start_date
+    days_counted = 0
+    
+    while days_counted < days_needed:
+        is_weekend = current_date.weekday() in (5, 6) # 5: Saturday, 6: Sunday
+        
+        # 제외 조건 체크
+        is_holiday = current_date in excluded
+        
+        is_class_day = False
+        if course_type == "평일과정":
+            if not is_weekend and not is_holiday:
+                is_class_day = True
+        elif course_type == "주말과정":
+            if is_weekend and not is_holiday:
+                is_class_day = True
+        else: # 예외적인 경우
+            if not is_holiday:
+                is_class_day = True
+                
+        if is_class_day:
+            days_counted += 1
+            
+        if days_counted < days_needed:
+            current_date += datetime.timedelta(days=1)
+            
+    return current_date, days_needed
+
+def get_korean_holidays():
+    """
+    2026년부터 2030년까지 대한민국의 주요 법정 공휴일, 대체공휴일 및 근로자의 날 매핑 사전입니다.
+    """
+    return {
+        # 2026년
+        "2026-01-01": "신정",
+        "2026-02-16": "설날 연휴",
+        "2026-02-17": "설날",
+        "2026-02-18": "설날 연휴",
+        "2026-03-01": "삼일절",
+        "2026-03-02": "대체공휴일 (삼일절)",
+        "2026-05-01": "근로자의 날",
+        "2026-05-05": "어린이날",
+        "2026-05-24": "부처님오신날",
+        "2026-05-25": "대체공휴일 (부처님오신날)",
+        "2026-06-03": "지방선거일",
+        "2026-06-06": "현충일",
+        "2026-08-15": "광복절",
+        "2026-08-17": "대체공휴일 (광복절)",
+        "2026-09-24": "추석 연휴",
+        "2026-09-25": "추석",
+        "2026-09-26": "추석 연휴",
+        "2026-09-28": "대체공휴일 (추석)",
+        "2026-10-03": "개천절",
+        "2026-10-05": "대체공휴일 (개천절)",
+        "2026-10-09": "한글날",
+        "2026-12-25": "성탄절",
+        
+        # 2027년
+        "2027-01-01": "신정",
+        "2027-02-06": "설날 연휴",
+        "2027-02-07": "설날",
+        "2027-02-08": "설날 연휴",
+        "2027-02-09": "대체공휴일 (설날)",
+        "2027-03-01": "삼일절",
+        "2027-05-01": "근로자의 날",
+        "2027-05-05": "어린이날",
+        "2027-05-13": "부처님오신날",
+        "2027-06-06": "현충일",
+        "2027-06-07": "대체공휴일 (현충일)",
+        "2027-07-17": "제헌절",
+        "2027-07-19": "대체공휴일 (제헌절)",
+        "2027-08-15": "광복절",
+        "2027-08-16": "대체공휴일 (광복절)",
+        "2027-09-14": "추석 연휴",
+        "2027-09-15": "추석",
+        "2027-09-16": "추석 연휴",
+        "2027-10-03": "개천절",
+        "2027-10-04": "대체공휴일 (개천절)",
+        "2027-10-09": "한글날",
+        "2027-10-11": "대체공휴일 (한글날)",
+        "2027-12-25": "성탄절",
+        "2027-12-27": "대체공휴일 (성탄절)",
+        
+        # 2028년
+        "2028-01-01": "신정",
+        "2028-01-26": "설날 연휴",
+        "2028-01-27": "설날",
+        "2028-01-28": "설날 연휴",
+        "2028-03-01": "삼일절",
+        "2028-04-12": "국회의원 선거일",
+        "2028-05-01": "근로자의 날",
+        "2028-05-02": "부처님오신날",
+        "2028-05-05": "어린이날",
+        "2028-06-06": "현충일",
+        "2028-08-15": "광복절",
+        "2028-10-02": "추석 연휴",
+        "2028-10-03": "추석 / 개천절",
+        "2028-10-04": "추석 연휴",
+        "2028-10-05": "대체공휴일",
+        "2028-10-09": "한글날",
+        "2028-12-25": "성탄절",
+        
+        # 2029년
+        "2029-01-01": "신정",
+        "2029-02-12": "설날 연휴",
+        "2029-02-13": "설날",
+        "2029-02-14": "설날 연휴",
+        "2029-03-01": "삼일절",
+        "2029-05-01": "근로자의 날",
+        "2029-05-05": "어린이날",
+        "2029-05-07": "대체공휴일 (어린이날)",
+        "2029-05-20": "부처님오신날",
+        "2029-05-21": "대체공휴일 (부처님오신날)",
+        "2029-06-06": "현충일",
+        "2029-08-15": "광복절",
+        "2029-09-21": "추석 연휴",
+        "2029-09-22": "추석",
+        "2029-09-23": "추석 연휴",
+        "2029-09-24": "대체공휴일 (추석)",
+        "2029-10-03": "개천절",
+        "2029-10-09": "한글날",
+        "2029-12-25": "성탄절",
+        
+        # 2030년
+        "2030-01-01": "신정",
+        "2030-02-02": "설날 연휴",
+        "2030-02-03": "설날",
+        "2030-02-04": "설날 연휴",
+        "2030-02-05": "대체공휴일 (설날)",
+        "2030-03-01": "삼일절",
+        "2030-05-01": "근로자의 날",
+        "2030-05-05": "어린이날",
+        "2030-05-06": "대체공휴일 (어린이날)",
+        "2030-05-09": "부처님오신날",
+        "2030-06-06": "현충일",
+        "2030-08-15": "광복절",
+        "2030-09-11": "추석 연휴",
+        "2030-09-12": "추석",
+        "2030-09-13": "추석 연휴",
+        "2030-10-03": "개천절",
+        "2030-10-09": "한글날",
+        "2030-12-25": "성탄절"
+    }
+
+def sync_holidays(start_date, total_hours, daily_hours, course_type):
+    """
+    설정 변경 시 예상 강의 기간 내의 국경일을 자동으로 찾아 기존의 사용자 지정 공강일과 통합합니다.
+    """
+    if not total_hours or not daily_hours or total_hours <= 0 or daily_hours <= 0:
+        return
+        
+    # 대략적인 수업일 계산 (휴일 없을 때의 기준일수 * 3배 범위 스캔)
+    days_est = (total_hours + daily_hours - 1) // daily_hours
+    limit_date = start_date + datetime.timedelta(days=days_est * 3)
+    
+    # 국경일 조회
+    holidays_dict = get_korean_holidays()
+    national_holidays = []
+    curr = start_date
+    while curr <= limit_date:
+        date_str = curr.strftime("%Y-%m-%d")
+        if date_str in holidays_dict:
+            national_holidays.append((curr, holidays_dict[date_str]))
+        curr += datetime.timedelta(days=1)
+        
+    national_dates_set = {h[0] for h in national_holidays}
+    
+    # 현재 세션 상태 데이터 추출
+    current_df = st.session_state.temp_holidays
+    manual_rows = []
+    for idx, row in current_df.iterrows():
+        d = row["제외 날짜"]
+        if pd.isna(d):
+            continue
+        if isinstance(d, datetime.datetime):
+            d = d.date()
+        elif isinstance(d, str):
+            try:
+                d = datetime.datetime.strptime(d.strip(), "%Y-%m-%d").date()
+            except ValueError:
+                continue
+                
+        # 새 국경일 범위에 포함되지 않는 날짜만 사용자 지정 공강일로 유지
+        if d not in national_dates_set:
+            manual_rows.append({"제외 날짜": d, "비고": row.get("비고") or "학원 공강일"})
+            
+    # 국경일과 수동 입력 공강일 병합
+    combined = []
+    for d, name in national_holidays:
+        combined.append({"제외 날짜": d, "비고": name})
+    combined.extend(manual_rows)
+    
+    # 날짜 순으로 정렬
+    combined.sort(key=lambda x: x["제외 날짜"])
+    
+    # 세션 상태 갱신
+    st.session_state.temp_holidays = pd.DataFrame(combined, columns=["제외 날짜", "비고"])
+
 # Streamlit 페이지 기본 설정
 st.set_page_config(
     page_title="EduPilot Agent - 강사의 두 번째 뇌",
@@ -48,6 +276,9 @@ if "pending_exam_metadata" not in st.session_state:
 
 if "view_submission_detail" not in st.session_state:
     st.session_state.view_submission_detail = None
+
+if "temp_holidays" not in st.session_state:
+    st.session_state.temp_holidays = pd.DataFrame(columns=["제외 날짜", "비고"])
 
 
 def render_detailed_scorecard(questions: list, student_answers: list, feedback_raw: str):
@@ -311,18 +542,135 @@ if st.session_state.role == "teacher":
         # --- 탭 2: 교육과정 개설 및 강의 설계 ---
         with tab_course:
             st.subheader("🏫 1. 신규 교육과정 개설 & 커리큘럼 설계")
-            with st.form("new_course_form"):
-                new_course_name = st.text_input("과정 이름 입력", placeholder="예: FastAPI 파이썬 웹 백엔드 실무 과정")
-                new_course_desc = st.text_area("과정 개요 및 설명", placeholder="예: 파이썬을 기반으로 FastAPI와 SQLite DB를 활용한 백엔드 구축 교육")
-                submit_course = st.form_submit_button("🆕 과정 등록 및 AI 커리큘럼 생성")
+            new_course_name = st.text_input("과정 이름 입력", placeholder="예: FastAPI 파이썬 웹 백엔드 실무 과정")
+            new_course_desc = st.text_area("과정 개요 및 설명", placeholder="예: 파이썬을 기반으로 FastAPI와 SQLite DB를 활용한 백엔드 구축 교육")
+            
+            c_col1, c_col2 = st.columns(2)
+            with c_col1:
+                total_hours = st.number_input("전체 수업 시간 (시간)", min_value=1, value=80, step=1)
+                start_date = st.date_input("과정 시작일", value=datetime.date.today())
+            with c_col2:
+                course_type = st.selectbox("과정 구분", ["평일과정", "주말과정"], index=0)
+                daily_hours = st.number_input("하루 수업 시간 (시간)", min_value=1, max_value=24, value=8, step=1)
+
+            # 설정값 변경 감지 및 공휴일 동기화 트리거
+            current_settings = (start_date, int(total_hours), int(daily_hours), course_type)
+            if "prev_course_settings" not in st.session_state:
+                st.session_state.prev_course_settings = current_settings
+                sync_holidays(start_date, int(total_hours), int(daily_hours), course_type)
+            elif st.session_state.prev_course_settings != current_settings:
+                st.session_state.prev_course_settings = current_settings
+                sync_holidays(start_date, int(total_hours), int(daily_hours), course_type)
+
+            st.markdown("**📅 제외일 등록 (공휴일/임시공휴일/학원 공강일 등)**")
+            edited_df = st.data_editor(
+                st.session_state.temp_holidays,
+                num_rows="dynamic",
+                column_config={
+                    "제외 날짜": st.column_config.DateColumn(
+                        "제외할 날짜 선택",
+                        min_value=datetime.date(2026, 1, 1),
+                        max_value=datetime.date(2030, 12, 31),
+                        format="YYYY-MM-DD",
+                        required=True
+                    ),
+                    "비고": st.column_config.TextColumn(
+                        "비고 (휴무 사유)",
+                        default="학원 공강일"
+                    )
+                },
+                use_container_width=True,
+                key="holidays_editor"
+            )
+            
+            # 실시간 종료일 및 기간 정보 계산 (종료일 필터링 전 최초 계산)
+            holiday_list = []
+            if edited_df is not None and not edited_df.empty:
+                for idx, row in edited_df.iterrows():
+                    d = row["제외 날짜"]
+                    if pd.isna(d):
+                        continue
+                    if isinstance(d, datetime.datetime):
+                        d = d.date()
+                    elif isinstance(d, str) and d.strip():
+                        try:
+                            d = datetime.datetime.strptime(d.strip(), "%Y-%m-%d").date()
+                        except ValueError:
+                            continue
+                    holiday_list.append(d)
                 
+            end_date, days_needed = calculate_end_date(start_date, total_hours, daily_hours, course_type, holiday_list)
+            
+            # 종료일 이후의 공휴일/공강일 필터링 (공휴일 체크 한계값을 종료일로 설정)
+            filtered_rows = []
+            holiday_structured_list = []
+            if edited_df is not None and not edited_df.empty:
+                for idx, row in edited_df.iterrows():
+                    d = row["제외 날짜"]
+                    if pd.isna(d):
+                        continue
+                    remark = row.get("비고") or "학원 공강일"
+                    if isinstance(d, datetime.datetime):
+                        d = d.date()
+                    elif isinstance(d, str) and d.strip():
+                        try:
+                            d = datetime.datetime.strptime(d.strip(), "%Y-%m-%d").date()
+                        except ValueError:
+                            continue
+                    
+                    if d <= end_date:
+                        filtered_rows.append({"제외 날짜": d, "비고": remark})
+                        d_str = d.strftime("%Y-%m-%d")
+                        holiday_structured_list.append({"date": d_str, "remark": remark})
+            
+            # 종료일 이후의 날짜가 있어서 필터링되었다면 세션 상태를 업데이트하고 화면을 다시 그림
+            original_valid_count = len(holiday_list)
+            if len(filtered_rows) < original_valid_count:
+                st.session_state.temp_holidays = pd.DataFrame(filtered_rows, columns=["제외 날짜", "비고"])
+                st.rerun()
+            elif edited_df is not None:
+                # 필터링 대상이 없더라도 현재 에디터 상태를 세션 상태에 저장하여 동기화
+                st.session_state.temp_holidays = edited_df
+            
+            # 주차 수 계산
+            if course_type == "평일과정":
+                weeks = (days_needed + 4) // 5
+            else:  # 주말과정
+                weeks = (days_needed + 1) // 2
+            if weeks <= 0:
+                weeks = 1
+                
+            st.info(
+                f"ℹ️ **실시간 교육 일정 정보**\n"
+                f"- **총 수업 일수**: {days_needed}일\n"
+                f"- **총 수업 주차**: {weeks}주차\n"
+                f"- **예상 종료일**: **{end_date.strftime('%Y-%m-%d')}** (지정된 제외일 및 주말 미수업 반영)"
+            )
+            
+            submit_course = st.button("🆕 과정 등록 및 AI 커리큘럼 생성", type="primary", use_container_width=True)
+
             if submit_course and new_course_name:
-                with st.spinner("Course 에이전트가 8주 커리큘럼을 생성하고 있습니다..."):
-                    curr_list = asyncio.run(generate_curriculum_async(new_course_name, new_course_desc))
-                    c_id = insert_course(new_course_name, new_course_desc)
+                with st.spinner(f"Course 에이전트가 {weeks}주 커리큘럼을 생성하고 있습니다..."):
+                    import json
+                    holiday_json = json.dumps(holiday_structured_list, ensure_ascii=False)
+                    curr_list = asyncio.run(generate_curriculum_async(new_course_name, new_course_desc, weeks))
+                    
+                    c_id = insert_course(
+                        name=new_course_name,
+                        description=new_course_desc,
+                        total_hours=int(total_hours),
+                        start_date=start_date.strftime("%Y-%m-%d"),
+                        end_date=end_date.strftime("%Y-%m-%d"),
+                        course_type=course_type,
+                        daily_hours=int(daily_hours),
+                        holiday_dates=holiday_json
+                    )
                     for item in curr_list:
                         insert_curriculum(c_id, item["week"], item["topic"], item["details"])
-                st.success(f"교육과정 '{new_course_name}'이 등록되고 8주 커리큘럼이 구축되었습니다!")
+                st.success(f"교육과정 '{new_course_name}'이 등록되고 {weeks}주 커리큘럼이 구축되었습니다!")
+                st.session_state.temp_holidays = pd.DataFrame(columns=["제외 날짜", "비고"])
+                if "prev_course_settings" in st.session_state:
+                    del st.session_state.prev_course_settings
                 st.rerun()
 
             st.markdown("---")
@@ -332,6 +680,44 @@ if st.session_state.role == "teacher":
                 for c in courses:
                     with st.expander(f"📖 {c['name']} (과정 ID: {c['id']})"):
                         st.write(f"**과정 개요**: {c['description']}")
+                        
+                        # 신규 컬럼 세팅 정보 표시
+                        if c.get("total_hours") is not None:
+                            h_dates_info = []
+                            if c.get("holiday_dates"):
+                                try:
+                                    import json
+                                    raw_holidays = json.loads(c["holiday_dates"])
+                                    holidays_dict = get_korean_holidays()
+                                    for item in raw_holidays:
+                                        if isinstance(item, dict):
+                                            d_str = item.get("date", "")
+                                            remark = item.get("remark", "")
+                                            if remark:
+                                                h_dates_info.append(f"{d_str} ({remark})")
+                                            else:
+                                                h_dates_info.append(d_str)
+                                        else: # 구버전 호환용 (단순 날짜 문자열)
+                                            d_str = str(item)
+                                            if d_str in holidays_dict:
+                                                h_dates_info.append(f"{d_str} ({holidays_dict[d_str]})")
+                                            else:
+                                                h_dates_info.append(f"{d_str} (제외일)")
+                                except Exception:
+                                    pass
+                            
+                            c_info_col1, c_info_col2 = st.columns(2)
+                            with c_info_col1:
+                                st.write(f"⏱️ **총 수업 시간**: {c['total_hours']}시간 (하루 {c['daily_hours']}시간)")
+                                st.write(f"📅 **교육 기간**: {c['start_date']} ~ {c['end_date']}")
+                            with c_info_col2:
+                                st.write(f"🏫 **과정 구분**: {c['course_type']}")
+                                if h_dates_info:
+                                    st.write(f"🚫 **지정 제외일 ({len(h_dates_info)}일)**: {', '.join(h_dates_info)}")
+                                else:
+                                    st.write("🚫 **지정 제외일**: 없음")
+                            st.markdown("---")
+
                         curr_data = get_course_curriculum(c['id'])
                         
                         st.markdown("**[주차별 커리큘럼 상세]**")
@@ -348,7 +734,8 @@ if st.session_state.role == "teacher":
                                     st.markdown(f"**과목/주제**: {p['subject_name']}")
                                     st.markdown(p['plan_content'])
                         
-                        target_week = st.number_input(f"강의안을 작성할 주차 선택 ({c['name']})", min_value=1, max_value=8, value=1, key=f"week_inp_{c['id']}")
+                        max_w = max([cur["week"] for cur in curr_data]) if curr_data else 8
+                        target_week = st.number_input(f"강의안을 작성할 주차 선택 ({c['name']})", min_value=1, max_value=max_w, value=1, key=f"week_inp_{c['id']}")
                         target_curr = next((item for item in curr_data if item["week"] == target_week), None)
                         
                         if target_curr:

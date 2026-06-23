@@ -9,7 +9,7 @@ load_dotenv()
 
 # 1. 커리큘럼 설계를 위한 시스템 프롬프트
 CURRICULUM_SYSTEM_PROMPT = """당신은 IT 교육 기관의 수석 교육과정 설계자(Instructional Designer)인 CourseAgent::Curriculum입니다.
-제시된 교육과정명과 과정 설명을 바탕으로, 비전공자도 쉽게 배울 수 있도록 구조화된 8주차 분량의 주간 실무 커리큘럼을 설계해야 합니다.
+제시된 교육과정명과 과정 설명을 바탕으로, 비전공자도 쉽게 배울 수 있도록 구조화된 주간 실무 커리큘럼을 설계해야 합니다.
 
 [답변 포맷]
 반드시 아래 JSON 포맷만을 반환해 주세요. 다른 인사말이나 마크다운 백틱(```json) 기호 등 부가 텍스트는 일절 출력하지 마세요.
@@ -22,9 +22,9 @@ CURRICULUM_SYSTEM_PROMPT = """당신은 IT 교육 기관의 수석 교육과정 
   }},
   ...
   {{
-    "week": 8,
-    "topic": "8주차 핵심 대주제명",
-    "details": "8주차에 배울 구체적인 실무 세부 기술 키워드 및 학습 내용 요약 (쉼표로 구분)"
+    "week": N,
+    "topic": "N주차 핵심 대주제명",
+    "details": "N주차에 배울 구체적인 실무 세부 기술 키워드 및 학습 내용 요약 (쉼표로 구분)"
   }}
 ]
 """
@@ -129,17 +129,17 @@ SINGLE_QUESTION_SYSTEM_PROMPT = """당신은 평가 설계 전문가인 CourseAg
 }}
 """
 
-async def generate_curriculum_async(course_name: str, course_desc: str) -> list:
+async def generate_curriculum_async(course_name: str, course_desc: str, weeks: int = 8) -> list:
     """
-    과정명과 개요를 바탕으로 8주차 커리큘럼 데이터(JSON 리스트)를 생성합니다.
+    과정명과 개요를 바탕으로 N주차 커리큘럼 데이터(JSON 리스트)를 생성합니다.
     """
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
     prompt = ChatPromptTemplate.from_messages([
         ("system", CURRICULUM_SYSTEM_PROMPT),
-        ("human", "과정명: {name}\n과정 설명: {desc}")
+        ("human", "과정명: {name}\n과정 설명: {desc}\n목표 주차: 반드시 정확히 {weeks}주차 분량의 커리큘럼을 생성해야 합니다. JSON 배열의 길이는 {weeks}개여야 하며, 각 요소의 'week' 속성은 1부터 {weeks}까지 증가해야 합니다.")
     ])
     
-    response = await llm.ainvoke(prompt.format(name=course_name, desc=course_desc))
+    response = await llm.ainvoke(prompt.format(name=course_name, desc=course_desc, weeks=weeks))
     res_text = response.content.strip()
     res_text = re.sub(r"^```json\s*", "", res_text)
     res_text = re.sub(r"\s*```$", "", res_text)
@@ -149,7 +149,7 @@ async def generate_curriculum_async(course_name: str, course_desc: str) -> list:
         return curriculum_list
     except Exception as e:
         print(f"Curriculum JSON Error: {e}\nRaw Text: {res_text}")
-        return [{"week": i, "topic": f"{course_name} 기초 {i}단계", "details": "세부 키워드 준비 중"} for i in range(1, 9)]
+        return [{"week": i, "topic": f"{course_name} 기초 {i}단계", "details": "세부 키워드 준비 중"} for i in range(1, weeks + 1)]
 
 async def generate_lecture_plan_async(course_name: str, week: int, topic: str, details: str) -> str:
     """
