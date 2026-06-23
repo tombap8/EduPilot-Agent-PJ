@@ -254,14 +254,50 @@ st.set_page_config(
     page_title="EduPilot Agent - 강사의 두 번째 뇌",
     page_icon="🤖",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
+
+# Tailwind CSS v3 CDN 로드 및 기본 스타일 설정
+st.markdown("""
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+    /* Streamlit 기본 사이드바와 헤더 완전 차단 */
+    [data-testid="stSidebar"] {
+        display: none !important;
+    }
+    [data-testid="stHeader"] {
+        background-color: transparent !important;
+        pointer-events: none !important; /* 투명 헤더가 마우스 클릭 차단하는 것 완전 방지 */
+    }
+    /* 밝은 테마 기본 배경색 및 전체 가독성을 위한 검정색 텍스트 강제 */
+    .stApp {
+        background-color: #f8fafc !important;
+        color: #0f172a !important;
+    }
+    /* 일반 마크다운 글자색을 어둡게 처리하여 시인성 확보 */
+    .stMarkdown, .stMarkdown p, .stMarkdown li, .stMarkdown span, .stMarkdown label {
+        color: #1e293b !important;
+    }
+    /* 타이틀/헤더 글자색 검정색 변경 */
+    h1, h2, h3, h4, h5, h6 {
+        color: #0f172a !important;
+    }
+    /* Streamlit 기본 탭 스타일 조정 및 전체 컨테이너 패딩 조절 */
+    .main .block-container {
+        padding-top: 110px !important;
+        padding-bottom: 80px !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # 세션 상태 초기화 (로그인 상태)
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.role = None      # 'teacher' or 'student'
     st.session_state.username = None  # '교사' 또는 학생 이름
+
+if "current_tab" not in st.session_state:
+    st.session_state.current_tab = "chatbot" # "chatbot", "course", "exam"
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
@@ -368,20 +404,114 @@ def render_detailed_scorecard(questions: list, student_answers: list, feedback_r
 # 0. 로그인 게이트웨이 화면 (Landing Login Screen)
 # ---------------------------------------------
 if not st.session_state.logged_in:
+    # 로그인 화면 전용 스타일 주입 (밝은 테마)
+    st.markdown("""
+    <style>
+        /* 로그인 배경 및 레이아웃 재지정 - 밝은 톤 */
+        .stApp {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
+        }
+        
+        /* 로그인 카드 테두리 및 그림자 효과 - 밝은 백그라운드 */
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            background-color: rgba(255, 255, 255, 0.9) !important;
+            backdrop-filter: blur(16px) !important;
+            border: 1px solid rgba(226, 232, 240, 0.8) !important;
+            border-radius: 20px !important;
+            padding: 2.5rem !important;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.03) !important;
+        }
+        
+        /* 데스크탑형(DT) 화면에서 로그인 박스 최소 너비 420px 고정 */
+        @media (min-width: 768px) {
+            div[data-testid="stVerticalBlockBorderWrapper"] {
+                min-width: 420px !important;
+                width: 420px !important;
+                margin: 0 auto !important;
+            }
+        }
+        
+        /* 텍스트 입력 필드 */
+        div[data-testid="stTextInput"] label {
+            color: #334155 !important; /* slate-700 */
+            font-weight: 600 !important;
+            font-size: 13px !important;
+        }
+        div[data-testid="stTextInput"] input {
+            background-color: #ffffff !important;
+            color: #0f172a !important; /* 검정색 계열 */
+            border: 1px solid #cbd5e1 !important; /* slate-300 */
+            border-radius: 10px !important;
+            padding: 10px 14px !important;
+            transition: all 0.3s ease;
+        }
+        div[data-testid="stTextInput"] input:focus {
+            border-color: #4f46e5 !important; /* indigo-600 */
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15) !important;
+        }
+        
+        /* 로그인 실행 버튼 */
+        div[data-testid="stBaseButton-secondary"] button {
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 10px !important;
+            padding: 12px 20px !important;
+            font-size: 15px !important;
+            font-weight: 600 !important;
+            box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.3) !important;
+            transition: all 0.2s ease !important;
+            margin-top: 10px !important;
+        }
+        div[data-testid="stBaseButton-secondary"] button:hover {
+            transform: translateY(-1px) !important;
+            box-shadow: 0 6px 20px 0 rgba(99, 102, 241, 0.4) !important;
+        }
+    </style>
+    
+    <script>
+        // 패스워드 입력란에서 Enter 감지 시 로그인 버튼 클릭 처리
+        const loginInterval = setInterval(() => {
+            const passwordField = document.querySelector('input[type="password"]');
+            const loginBtn = Array.from(document.querySelectorAll('button')).find(
+                btn => btn.textContent.includes('로그인 실행')
+            );
+            
+            if (passwordField && loginBtn) {
+                if (!passwordField.classList.contains('enter-event-bound')) {
+                    passwordField.classList.add('enter-event-bound');
+                    passwordField.addEventListener('keydown', function(e) {
+                        if (e.keyCode === 13 || e.key === 'Enter') {
+                            e.preventDefault();
+                            loginBtn.click();
+                        }
+                    });
+                }
+            }
+        }, 400);
+    </script>
+    """, unsafe_allow_html=True)
+    
     st.markdown("<br><br>", unsafe_allow_html=True)
-    l_col1, l_col2, l_col3 = st.columns([1, 1.5, 1])
+    l_col1, l_col2, l_col3 = st.columns([1, 1.3, 1])
     
     with l_col2:
         with st.container(border=True):
-            logo_path = os.path.join(PROJECT_ROOT, "edupilot_logo.png")
-            if os.path.exists(logo_path):
-                st.image(logo_path, width=90)
-            else:
-                st.markdown("## 🎓")
-            st.title("🤖 EduPilot Agent")
-            st.subheader("지능형 교육 정보 플랫폼 로그인")
-            st.markdown("강사 및 학생 인증 후 서비스를 이용하실 수 있습니다.")
-            st.markdown("---")
+            st.markdown("""
+            <div class="text-center flex flex-col items-center py-4" style="text-align: center;">
+                <div class="w-24 h-24 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-3xl flex items-center justify-center text-5xl shadow-lg shadow-indigo-600/20 mb-6" style="font-size: 150px; text-align: center; line-height: 70px">
+                    🤖
+                </div>
+                <h1 class="text-3xl font-black text-slate-800 tracking-tight" style="line-height: .7; font-size: 2.2rem;margin-left:24px;">
+                    EduPilot Platform
+                </h1>
+                <p class="text-sm text-slate-500 mt-1">지능형 교육 정보 플랫폼 로그인</p>
+                <div class="text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg py-3 px-4 mt-6 w-full text-center font-medium">
+                    📢 강사 및 학생 인증 후 서비스를<br> 이용하실 수 있습니다.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown("<div class='h-2'></div>", unsafe_allow_html=True)
             
             login_id = st.text_input("아이디 (강사는 '교사', 학생은 본인 이름 입력)", placeholder="이름을 입력해 주세요.")
             login_pw = st.text_input("비밀번호 (전체 기본값: 1111)", type="password", placeholder="비밀번호를 입력해 주세요.")
@@ -394,6 +524,7 @@ if not st.session_state.logged_in:
                     st.session_state.logged_in = True
                     st.session_state.role = "teacher"
                     st.session_state.username = "교사"
+                    st.session_state.current_tab = "chatbot"
                     st.success("✔️ 교사(강사) 계정으로 인증되었습니다. 포털로 진입합니다.")
                     st.rerun()
                 else:
@@ -403,6 +534,7 @@ if not st.session_state.logged_in:
                         st.session_state.logged_in = True
                         st.session_state.role = "student"
                         st.session_state.username = login_id
+                        st.session_state.current_tab = "student_exam"
                         st.success(f"✔️ {login_id} 학생으로 인증되었습니다. 시험 포털로 진입합니다.")
                         st.rerun()
                     else:
@@ -412,103 +544,297 @@ if not st.session_state.logged_in:
 # ---------------------------------------------
 # 1. 사이드바 구성 (환영 표시 및 로그아웃 + 권한 격리)
 # ---------------------------------------------
-with st.sidebar:
-    logo_path = os.path.join(PROJECT_ROOT, "edupilot_logo.png")
-    if os.path.exists(logo_path):
-        st.image(logo_path, width=60)
-    else:
-        st.markdown("## 🎓")
-    st.title("EduPilot Platform")
-    
-    # 로그인 정보 & 로그아웃 버튼
-    role_ko = "교사/강사" if st.session_state.role == "teacher" else "수강생"
-    st.markdown(f"👤 **{st.session_state.username}** 님 환영합니다!")
-    st.caption(f"접속 권한: {role_ko}")
-    
-    if st.button("🚪 로그아웃", use_container_width=True):
-        st.session_state.logged_in = False
-        st.session_state.role = None
-        st.session_state.username = None
-        st.session_state.messages = [
-            {"role": "assistant", "content": "안녕하세요! 교육 운영 보조 멀티 에이전트 **EduPilot Agent**입니다. 무엇을 도와드릴까요?"}
-        ]
-        st.rerun()
-        
-    st.markdown("---")
+# ---------------------------------------------
+# 1. 상단 고정 네비게이션 바 (Navbar) 렌더링 및 스타일 정의
+# ---------------------------------------------
+role_ko = "교사/강사" if st.session_state.role == "teacher" else "수강생"
 
-    # 강사용 권한에만 관리 툴 오픈
-    if st.session_state.role == "teacher":
-        st.subheader("🗄️ 데이터베이스 관리")
-        if st.button("🔄 DB 초기화 및 더미 데이터 적재", use_container_width=True):
-            with st.spinner("DB 초기화 중..."):
-                init_db(force_reset=True)
-            st.success("DB가 완벽히 초기화되었습니다!")
+# 상단 Navbar 고정용 트리거 마크다운 주입
+st.markdown('<div class="nav-bg-trigger"></div>', unsafe_allow_html=True)
+
+# 탭 전환용 st.columns 렌더링 (첫 번째 stHorizontalBlock을 CSS로 fixed 배치하고 1200px 중앙 정렬)
+st.markdown("""
+<style>
+    /* 조상 컨테이너들의 CSS transform/perspective/will-change 강제 해제 (fixed 붕괴의 근본적 원인 제거) */
+    .stApp, .stAppViewContainer, .stAppMainContent, .main, .block-container, [data-testid="stVerticalBlock"], [data-testid="stVerticalBlockBorderWrapper"], .element-container {
+        transform: none !important;
+        perspective: none !important;
+        will-change: auto !important;
+    }
+
+    /* 네비게이션 탭이 포함된 stHorizontalBlock을 핀포인트 타겟팅하여 viewport 상단에 고정 */
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_chat),
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_logout),
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_student_logout) {
+        position: fixed !important;
+        top: 0px !important; /* 화면 최상단 밀착 */
+        left: 50% !important;
+        white-space: nowrap !important;
+        transform: translateX(-50%) !important; /* 가로 중앙 정렬 */
+        width: 1019px !important;
+        max-width: 1019px !important;
+        z-index: 999999 !important; /* 최상위 레이어로 절대적인 레이어링 보장 */
+        height: 80px !important;
+        display: flex !important;
+        align-items: center !important;
+        background-color: transparent !important;
+        margin: 0 auto !important;
+        padding: 0 1.5rem !important;
+    }
+    
+    /* 가상 요소로 100vw 전체 폭의 흰색 Navbar 배경 삽입 (네비게이션 행에 철석 결합됨) */
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_chat)::before,
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_logout)::before,
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_student_logout)::before {
+        content: "" !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: 100vw !important; /* 브라우저 가로 전체 폭 */
+        height: 80px !important;
+        background-color: #ffffff !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02) !important;
+        z-index: -1 !important; /* 버튼들 뒤로 배경 위치 */
+    }
+    
+    /* stHorizontalBlock 내부의 컬럼 컨테이너 정렬 강제 */
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_chat) > div,
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_logout) > div,
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_student_logout) > div {
+        display: flex !important;
+        align-items: center !important;
+        /* height: 109px !important; */
+        padding-top: 10px !important;
+    }
+    
+    /* 특정 컬럼 및 공통 stColumn의 flex 너비 제어 (유연한 레이아웃 확장 보장) */
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_chat) div[data-testid="stColumn"],
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_student_logout) div[data-testid="stColumn"] {
+        flex: 1 1 auto !important;
+        width: auto !important;
+    }
+
+    /* st-emotion-cache-jko06q 클래스의 flex 속성 커스텀 지정 */
+    .st-emotion-cache-jko06q {
+        flex: 1 1 calc(14.1667% - 1rem) !important;
+    }
+    
+    /* 탭 및 로그아웃 버튼 스타일 */
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_chat) button,
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_student_logout) button {
+        height: 36px !important;
+        width: auto !important; /* 가로 크기를 자동으로 맞춤 */
+        min-width: max-content !important; /* 글자 크기만큼 100% 영역 확보 */
+        white-space: nowrap !important; /* 줄바꿈 방지 */
+        padding-left: 14px !important;
+        padding-right: 14px !important;
+        background-color: #f1f5f9 !important; /* slate-100 */
+        color: #475569 !important; /* slate-600 */
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 8px !important;
+        font-size: 13px !important;
+        font-weight: 700 !important;
+        transition: all 0.2s ease;
+    }
+    
+    /* 버튼 내부의 모든 span/p 자식 요소들도 줄바꿈 및 넘침 방지 */
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_chat) button *,
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_student_logout) button * {
+        white-space: nowrap !important;
+        width: auto !important;
+        display: inline-block !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_chat) button:hover,
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_student_logout) button:hover {
+        background-color: #e2e8f0 !important;
+        color: #0f172a !important;
+        border-color: #cbd5e1 !important;
+    }
+    /* primary (활성 탭) 스타일 */
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_chat) button[data-baseweb="button"][class*="primary"] {
+        background: #4f46e5 !important;
+        color: white !important;
+        border: none !important;
+        box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2) !important;
+    }
+    
+    /* 로그아웃 버튼 스타일 (마지막 컬럼 내 버튼) */
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_chat) div[data-testid="column"]:last-child button,
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_student_logout) div[data-testid="column"]:last-child button {
+        background-color: #ef4444 !important;
+        color: white !important;
+        border: none !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_chat) div[data-testid="column"]:last-child button:hover,
+    div[data-testid="stHorizontalBlock"]:has(.st-key-btn_nav_student_logout) div[data-testid="column"]:last-child button:hover {
+        background-color: #dc2626 !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# 실제 네비게이션 버튼들 정의 (교사와 학생 다르게 배치하여 HTML 영역과 조화)
+if st.session_state.role == "teacher":
+    nav_cols = st.columns([2.6, 1.4, 2.0, 1.7, 3.3, 1.0])
+    with nav_cols[0]:
+        st.markdown(f"""<div class="flex items-center gap-3" style="display:flex; flex-direction: row;gap: 10px;align-items: center;">
+            <span class="text-3xl leading-none" style="font-size: 55px">🤖</span>
+            <div class="flex flex-col">
+                <span class="text-base font-black text-slate-800 leading-none">EduPilot Agent</span>
+            </div>
+            <span class="text-[9px] bg-indigo-50 text-indigo-600 border border-indigo-200 px-2 py-0.5 rounded-full font-black leading-none">{role_ko}</span>
+        </div>""", unsafe_allow_html=True)
+    with nav_cols[1]:
+        is_chat = (st.session_state.current_tab == "chatbot")
+        if st.button("🤖 에이전트 챗봇", key="btn_nav_chat", type="primary" if is_chat else "secondary", use_container_width=True):
+            st.session_state.current_tab = "chatbot"
             st.rerun()
-
-        st.markdown("---")
-        st.subheader("📚 강의 자료 PDF 업로드")
-        uploaded_files = st.file_uploader(
-            "추가 교재 문서를 업로드해 주세요.",
-            type=["pdf"],
-            accept_multiple_files=True
-        )
-        if uploaded_files:
-            save_count = 0
-            for f in uploaded_files:
-                target_path = os.path.join(PROJECT_ROOT, "docs", "Tech_books", f.name)
-                os.makedirs(os.path.dirname(target_path), exist_ok=True)
-                with open(target_path, "wb") as out_file:
-                    out_file.write(f.read())
-                save_count += 1
-            if save_count > 0:
-                from agents.lecture_agent import ingest_documents
-                with st.spinner("PDF 문서 파싱 및 임베딩 진행 중..."):
-                    chunk_count = ingest_documents()
-                st.success(f"{save_count}개 파일 업로드 & {chunk_count}개 반영 완료!")
-                st.rerun()
-
-        st.markdown("---")
-        st.subheader("📡 강의자료 적재 현황")
-        from agents.lecture_agent import find_all_pdfs, DOCS_DIR
-        try:
-            pdfs = find_all_pdfs(DOCS_DIR)
-            display_pdfs = [os.path.basename(p) for p in pdfs if os.path.basename(p) != "edupilot_project_proposal.pdf"]
-            st.write(f"현재 로드된 PDF 파일 수: **{len(display_pdfs)}**개")
-            for filename in display_pdfs:
-                st.caption(f"• {filename}")
-        except:
-            st.caption("PDF 없음")
-    else:
-        st.markdown("### 📝 안내 사항")
-        st.markdown(
-            "학생 포털에 오신 것을 환영합니다.\n\n"
-            "강사님이 출제하고 **[시험 시작]**을 선언한 활성 평가 시험지만 화면에 나타납니다.\n"
-            "평가를 성실히 수행하시고 답안을 전송하면 중복 제출 방지를 위해 시험지가 자동으로 마감처리됩니다."
-        )
+    with nav_cols[2]:
+        is_course = (st.session_state.current_tab == "course")
+        if st.button("🆕 교육과정 & 강의 설계", key="btn_nav_course", type="primary" if is_course else "secondary", use_container_width=True):
+            st.session_state.current_tab = "course"
+            st.rerun()
+    with nav_cols[3]:
+        is_exam = (st.session_state.current_tab == "exam")
+        if st.button("📊 시험 및 평가 관리", key="btn_nav_exam", type="primary" if is_exam else "secondary", use_container_width=True):
+            st.session_state.current_tab = "exam"
+            st.rerun()
+    with nav_cols[4]:
+        st.markdown(f"""<div class="flex items-center justify-end w-full pr-4">
+            <span class="text-xs text-slate-600 font-bold">👤 <span class="text-slate-900 font-black text-sm">{st.session_state.username}</span> 님 환영합니다!</span>
+        </div>""", unsafe_allow_html=True)
+    with nav_cols[5]:
+        if st.button("🚪 로그아웃", key="btn_nav_logout", use_container_width=True):
+            st.session_state.logged_in = False
+            st.session_state.role = None
+            st.session_state.username = None
+            st.session_state.messages = [
+                {"role": "assistant", "content": "안녕하세요! 교육 운영 보조 멀티 에이전트 **EduPilot Agent**입니다. 무엇을 도와드릴까요?"}
+            ]
+            st.rerun()
+else:
+    # 학생 화면용 네비게이션
+    nav_cols = st.columns([3.5, 7.5, 1.0])
+    with nav_cols[0]:
+        st.markdown(f"""<div class="flex items-center gap-3" style="display:flex; flex-direction: row;gap: 10px;align-items: center;">
+            <span class="text-3xl leading-none" style="font-size: 55px">🤖</span>
+            <div class="flex flex-col">
+                <span class="text-base font-black text-slate-800 leading-none">EduPilot Agent</span>
+            </div>
+            <span class="text-[9px] bg-indigo-50 text-indigo-600 border border-indigo-200 px-2 py-0.5 rounded-full font-black leading-none">{role_ko}</span>
+        </div>""", unsafe_allow_html=True)
+    with nav_cols[1]:
+        st.markdown(f"""<div class="flex items-center justify-end w-full pr-4">
+            <span class="text-xs text-slate-600 font-bold">👤 <span class="text-slate-900 font-black text-sm">{st.session_state.username}</span> 님 환영합니다!</span>
+        </div>""", unsafe_allow_html=True)
+    with nav_cols[2]:
+        if st.button("🚪 로그아웃", key="btn_nav_student_logout", use_container_width=True):
+            st.session_state.logged_in = False
+            st.session_state.role = None
+            st.session_state.username = None
+            st.session_state.messages = [
+                {"role": "assistant", "content": "안녕하세요! 교육 운영 보조 멀티 에이전트 **EduPilot Agent**입니다. 무엇을 도와드릴까요?"}
+            ]
+            st.rerun()
 
 # ---------------------------------------------
 # 2. 강사 업무 포털 (Teacher Portal)
 # ---------------------------------------------
 if st.session_state.role == "teacher":
+    # 0. 시스템 관리 및 강의 자료 업로드 배너 (사이드바 대체형 가로 배너)
+    st.markdown("""
+    <div class="bg-white border border-slate-200 rounded-xl p-4 mb-6 shadow-sm">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="text-xl">🛠️</span>
+                <span class="text-sm font-bold text-slate-800">시스템 관리 및 강의 문서 업로드 제어판</span>
+            </div>
+            <span class="text-[10px] text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full font-semibold">배너 제어판</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    with st.expander("🛠️ 시스템 관리 및 강의 문서 업로드 제어판 열기", expanded=False):
+        b_col1, b_col2, b_col3 = st.columns([1, 1.2, 1.2])
+        with b_col1:
+            st.markdown("### 🗄️ 데이터베이스 관리")
+            if st.button("🔄 DB 초기화 및 더미 데이터 적재", key="banner_reset_db", use_container_width=True):
+                with st.spinner("DB 초기화 중..."):
+                    init_db(force_reset=True)
+                st.success("DB가 완벽히 초기화되었습니다!")
+                st.rerun()
+        with b_col2:
+            st.markdown("### 📚 강의 자료 PDF 업로드")
+            uploaded_files = st.file_uploader(
+                "추가 교재 문서를 업로드해 주세요.",
+                type=["pdf"],
+                accept_multiple_files=True,
+                key="banner_file_uploader"
+            )
+            if uploaded_files:
+                save_count = 0
+                for f in uploaded_files:
+                    target_path = os.path.join(PROJECT_ROOT, "docs", "Tech_books", f.name)
+                    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                    with open(target_path, "wb") as out_file:
+                        out_file.write(f.read())
+                    save_count += 1
+                if save_count > 0:
+                    from agents.lecture_agent import ingest_documents
+                    with st.spinner("PDF 문서 파싱 및 임베딩 진행 중..."):
+                        chunk_count = ingest_documents()
+                    st.success(f"{save_count}개 파일 업로드 & {chunk_count}개 반영 완료!")
+                    st.rerun()
+        with b_col3:
+            st.markdown("### 📡 강의자료 적재 현황")
+            from agents.lecture_agent import find_all_pdfs, DOCS_DIR
+            try:
+                pdfs = find_all_pdfs(DOCS_DIR)
+                display_pdfs = [os.path.basename(p) for p in pdfs if os.path.basename(p) != "edupilot_project_proposal.pdf"]
+                st.write(f"현재 로드된 PDF 파일 수: **{len(display_pdfs)}**개")
+                for filename in display_pdfs:
+                    st.caption(f"• {filename}")
+            except:
+                st.caption("PDF 없음")
+
     col_chat, col_status = st.columns([2, 1], gap="medium")
 
     with col_chat:
-        st.title("👩‍🏫 EduPilot 강사용 업무 포털")
-        st.markdown("교육과정 개설, 상세 강의계획안 도출, 시험 시작/종료 관리 및 학생 성적 조회를 관제합니다.")
-        st.markdown("---")
-
-        tab_chat, tab_course, tab_exam = st.tabs([
-            "🤖 에이전트 챗봇", 
-            "🆕 교육과정 개설 & 강의 설계", 
-            "📊 시험 출제 및 평가 관리"
-        ])
-
         # --- 탭 1: 에이전트 챗봇 ---
-        with tab_chat:
+        if st.session_state.current_tab == "chatbot":
+            st.markdown("""
+            <div class="mb-4">
+                <h2 class="text-2xl font-extrabold text-slate-800 flex items-center gap-2">
+                    🤖 지능형 교육 조력자 EduPilot Agent
+                </h2>
+                <p class="text-xs text-slate-500 mt-1">자연어로 질문하면 하단 6가지 전문 에이전트가 협업해 최적의 교안과 리포트를 설계합니다.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # 챗 인풋을 화면 하단에 고정하는 CSS 주입
+            st.markdown("""
+            <style>
+                /* st.chat_input 위치 고정 및 디자인 */
+                div[data-testid="stChatInput"] {
+                    position: fixed !important;
+                    bottom: 24px !important;
+                    left: calc(33% - 40px) !important; /* 좌측 col_chat 영역 중앙에 배치하기 위함 */
+                    width: 42% !important;
+                    max-width: 700px !important;
+                    z-index: 999 !important;
+                    background-color: #ffffff !important; /* 화이트 */
+                    border: 1px solid #cbd5e1 !important; /* 연한 보더 */
+                    border-radius: 12px !important;
+                    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08) !important;
+                }
+                div[data-testid="stChatInput"] textarea {
+                    color: #0f172a !important;
+                }
+            </style>
+            """, unsafe_allow_html=True)
+            
             with st.container(border=True):
-                st.markdown("### 👋 지능형 교육 조력자 EduPilot Agent")
-                st.markdown("자연어로 질문하면 하단 6가지 전문 에이전트가 협업해 최적의 교안과 리포트를 설계합니다.")
-                
                 f_col1, f_col2, f_col3 = st.columns(3)
                 with f_col1:
                     st.markdown("📚 **Lecture RAG**: 교재 PDF 정밀 출처 검색")
@@ -525,6 +851,9 @@ if st.session_state.role == "teacher":
                 with st.chat_message(msg["role"]):
                     st.markdown(msg["content"])
 
+            # 하단 고정 영역 가림 방지 패딩
+            st.markdown("<div style='height: 80px;'></div>", unsafe_allow_html=True)
+
             if prompt := st.chat_input("김민수 출결 확인해보고 학부모 공지문 써줘..."):
                 st.chat_message("user").markdown(prompt)
                 st.session_state.messages.append({"role": "user", "content": prompt})
@@ -540,7 +869,7 @@ if st.session_state.role == "teacher":
                     st.rerun()
 
         # --- 탭 2: 교육과정 개설 및 강의 설계 ---
-        with tab_course:
+        elif st.session_state.current_tab == "course":
             st.subheader("🏫 1. 신규 교육과정 개설 & 커리큘럼 설계")
             new_course_name = st.text_input("과정 이름 입력", placeholder="예: FastAPI 파이썬 웹 백엔드 실무 과정")
             new_course_desc = st.text_area("과정 개요 및 설명", placeholder="예: 파이썬을 기반으로 FastAPI와 SQLite DB를 활용한 백엔드 구축 교육")
@@ -751,7 +1080,7 @@ if st.session_state.role == "teacher":
                 st.info("개설된 교육과정이 없습니다.")
 
         # --- 탭 3: 시험 출제 및 평가 관리 ---
-        with tab_exam:
+        elif st.session_state.current_tab == "exam":
             st.subheader("📝 1. 과정별 평가 시험 출제")
             
             if st.session_state.pending_questions is not None:
@@ -1004,9 +1333,19 @@ if st.session_state.role == "teacher":
 # 3. 학생 평가 포털 및 제어 연동 (Student Portal)
 # ---------------------------------------------
 else:
-    st.title("📝 학생 온라인 평가 센터")
-    st.markdown(f"수강생 **{st.session_state.username}** 님, 환영합니다! 현재 시행 중인 평가 시험에 성실히 응시해 주시기 바랍니다.")
-    st.markdown("---")
+    st.markdown(f"""
+    <div class="bg-gradient-to-r from-slate-50 via-indigo-50 to-slate-50 border border-slate-200 rounded-2xl p-6 mb-6 shadow-sm">
+        <h1 class="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+            📝 학생 온라인 평가 센터
+        </h1>
+        <p class="text-xs text-slate-600 mt-2">
+            수강생 <b class="text-indigo-600 font-bold">{st.session_state.username}</b> 님, 환영합니다! 현재 시행 중인 평가 시험에 성실히 응시해 주시기 바랍니다.
+        </p>
+        <div class="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg py-2.5 px-3 mt-4 w-full font-medium">
+            💡 <b>안내 사항</b>: 강사님이 출제하고 <b>[시험 시작]</b>을 선언한 활성 평가 시험지만 아래에 나타납니다. 평가를 성실히 수행하시고 답안을 전송하면 중복 제출 방지를 위해 시험지가 자동으로 마감처리됩니다.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     # 🌟 [개선] 현재 'active' 상태인 시험만 로드
     active_exams = get_active_exams()
