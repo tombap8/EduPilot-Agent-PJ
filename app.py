@@ -679,7 +679,7 @@ if st.session_state.role == "teacher":
     nav_cols = st.columns([2.6, 1.4, 2.0, 1.7, 3.3, 1.0])
     with nav_cols[0]:
         st.markdown(f"""<div class="flex items-center gap-3" style="display:flex; flex-direction: row;gap: 10px;align-items: center;">
-            <span class="text-3xl leading-none" style="font-size: 55px">🤖</span>
+            <span class="text-3xl leading-none" style="font-size: 70px; line-height: 0.9;">🤖</span>
             <div class="flex flex-col">
                 <span class="text-base font-black text-slate-800 leading-none">EduPilot Agent</span>
             </div>
@@ -758,14 +758,14 @@ if st.session_state.role == "teacher":
     with st.expander("🛠️ 시스템 관리 및 강의 문서 업로드 제어판 열기", expanded=False):
         b_col1, b_col2, b_col3 = st.columns([1, 1.2, 1.2])
         with b_col1:
-            st.markdown("### 🗄️ 데이터베이스 관리")
+            st.subheader("🗄️DB관리")
             if st.button("🔄 DB 초기화 및 더미 데이터 적재", key="banner_reset_db", use_container_width=True):
                 with st.spinner("DB 초기화 중..."):
                     init_db(force_reset=True)
                 st.success("DB가 완벽히 초기화되었습니다!")
                 st.rerun()
         with b_col2:
-            st.markdown("### 📚 강의 자료 PDF 업로드")
+            st.subheader("📚 강의자료 PDF업로드")
             uploaded_files = st.file_uploader(
                 "추가 교재 문서를 업로드해 주세요.",
                 type=["pdf"],
@@ -787,14 +787,25 @@ if st.session_state.role == "teacher":
                     st.success(f"{save_count}개 파일 업로드 & {chunk_count}개 반영 완료!")
                     st.rerun()
         with b_col3:
-            st.markdown("### 📡 강의자료 적재 현황")
+            st.subheader("📡 강의자료현황")
             from agents.lecture_agent import find_all_pdfs, DOCS_DIR
             try:
                 pdfs = find_all_pdfs(DOCS_DIR)
                 display_pdfs = [os.path.basename(p) for p in pdfs if os.path.basename(p) != "edupilot_project_proposal.pdf"]
                 st.write(f"현재 로드된 PDF 파일 수: **{len(display_pdfs)}**개")
-                for filename in display_pdfs:
-                    st.caption(f"• {filename}")
+                pdf_list_html = "".join([f"<div style='margin-bottom: 6px; font-size: 13px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>• {filename}</div>" for filename in display_pdfs])
+                st.markdown(f"""
+                    <div style="
+                        max-height: 95px; 
+                        overflow-y: auto; 
+                        border: 1px solid #e2e8f0; 
+                        padding: 8px 12px; 
+                        border-radius: 8px; 
+                        background-color: #f8fafc;
+                    ">
+                        {pdf_list_html}
+                    </div>
+                """, unsafe_allow_html=True)
             except:
                 st.caption("PDF 없음")
 
@@ -806,7 +817,7 @@ if st.session_state.role == "teacher":
             st.markdown("""
             <div class="mb-4">
                 <h2 class="text-2xl font-extrabold text-slate-800 flex items-center gap-2">
-                    🤖 지능형 교육 조력자 EduPilot Agent
+                    <span style="font-size: 50px">🤖</span> EduPilot Agent
                 </h2>
                 <p class="text-xs text-slate-500 mt-1">자연어로 질문하면 하단 6가지 전문 에이전트가 협업해 최적의 교안과 리포트를 설계합니다.</p>
             </div>
@@ -837,14 +848,14 @@ if st.session_state.role == "teacher":
             with st.container(border=True):
                 f_col1, f_col2, f_col3 = st.columns(3)
                 with f_col1:
-                    st.markdown("📚 **Lecture RAG**: 교재 PDF 정밀 출처 검색")
-                    st.markdown("🗄️ **Student SQL**: 학생 출결/상담 DB 조회")
+                    st.markdown("📚 **Lecture RAG**:  \n교재 PDF 정밀 출처 검색")
+                    st.markdown("🗄️ **Student SQL**:  \n학생 출결/상담 DB 조회")
                 with f_col2:
-                    st.markdown("💻 **Assignment**: 소스코드 결함/리팩토링 분석")
-                    st.markdown("📅 **Schedule**: 과제 마감 및 학사일정 조회")
+                    st.markdown("💻 **Assignment**:  \n소스코드 결함/리팩토링 분석")
+                    st.markdown("📅 **Schedule**:  \n과제 마감 및 학사일정 조회")
                 with f_col3:
-                    st.markdown("📢 **Notice**: 수집 정보 통합 공지문 완성")
-                    st.markdown("🏫 **Course**: 커리큘럼/강의안/시험 자동 저작")
+                    st.markdown("📢 **Notice**:  \n수집 정보 통합 공지문 완성")
+                    st.markdown("🏫 **Course**:  \n커리큘럼/강의안/시험 자동 저작")
 
             st.markdown("---")
             for msg in st.session_state.messages:
@@ -1287,7 +1298,7 @@ if st.session_state.role == "teacher":
 
     # --- 우측 영역: Real-time Status Monitor ---
     with col_status:
-        st.title("📊 Real-time Dashboard")
+        st.subheader("📊 Real-time Dashboard")
         st.markdown("교육 현황 및 공지 히스토리 실시간 현황")
         st.markdown("---")
 
